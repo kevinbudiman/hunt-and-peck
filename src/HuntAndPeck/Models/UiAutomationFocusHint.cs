@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Windows;
-using UIAutomationClient;
+using Interop.UIAutomationClient;
 
 namespace HuntAndPeck.Models
 {

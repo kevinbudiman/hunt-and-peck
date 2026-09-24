@@ -7,7 +7,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Windows;
-using UIAutomationClient;
+using Interop.UIAutomationClient;
 
 namespace HuntAndPeck.Services
 {
