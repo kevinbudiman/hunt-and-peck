@@ -1,5 +1,5 @@
 # hunt-n-peck
-[![Build status](https://ci.appveyor.com/api/projects/status/jet85wsdqn10grhk/branch/master?svg=true)](https://ci.appveyor.com/project/zsims/hunt-and-peck/branch/master)
+[![Build](https://github.com/kevinbudiman/hunt-and-peck/actions/workflows/build.yml/badge.svg)](https://github.com/kevinbudiman/hunt-and-peck/actions/workflows/build.yml)
 
 Simple vimium/vimperator style navigation for Windows applications based on the UI Automation framework. In essence, it works the same as screen readers or accessibility programs but with the goal of making any Windows program faster to use.
 
@@ -9,7 +9,21 @@ NOTE: hunt-n-peck is sporadically maintained, please consider one of the various
 
 # Download
 
-https://github.com/zsims/hunt-and-peck/releases/download/release%2F1.7/HuntAndPeck-1.7.zip
+Every CI run publishes a self-contained `hap.exe` (win-x64, no .NET install required) as the `HuntAndPeck-win-x64` artifact on the [Actions page](https://github.com/kevinbudiman/hunt-and-peck/actions/workflows/build.yml).
+
+The last upstream .NET Framework release (1.7) is still available at https://github.com/zsims/hunt-and-peck/releases/download/release%2F1.7/HuntAndPeck-1.7.zip
+
+# Building
+
+Requires the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0). From `src/`:
+
+```
+dotnet build HuntAndPeck.slnx -c Release
+dotnet test --solution HuntAndPeck.slnx -c Release
+dotnet publish HuntAndPeck/HuntAndPeck.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -o dist
+```
+
+Running the app and tests requires Windows; building works on any OS.
 
 # How to change font size
 

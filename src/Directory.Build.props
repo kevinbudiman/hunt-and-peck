@@ -1,0 +1,10 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <!-- Allows building (not running) the Windows-only projects on Linux/macOS -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <LangVersion>latest</LangVersion>
+    <Product>HuntAndPeck</Product>
+    <Copyright>Copyright Zachary Sims</Copyright>
+  </PropertyGroup>
+</Project>

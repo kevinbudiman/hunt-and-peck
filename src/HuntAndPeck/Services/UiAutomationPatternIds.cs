@@ -1,5 +1,5 @@
 ﻿using System.Collections.Generic;
-using UIAutomationClient;
+using Interop.UIAutomationClient;
 
 namespace HuntAndPeck.Services
 {
