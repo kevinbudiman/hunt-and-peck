@@ -1,8 +1,7 @@
 <Project>
   <PropertyGroup>
-    <TargetFramework>net10.0-windows</TargetFramework>
-    <!-- Allows building (not running) the Windows-only projects on Linux/macOS -->
-    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <!-- .NET Framework 4.8 ships with Windows 10/11, so the app needs no runtime install or bundling -->
+    <TargetFramework>net48</TargetFramework>
     <LangVersion>latest</LangVersion>
     <Product>HuntAndPeck</Product>
     <Copyright>Copyright Zachary Sims</Copyright>

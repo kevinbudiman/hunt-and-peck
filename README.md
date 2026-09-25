@@ -9,9 +9,11 @@ NOTE: hunt-n-peck is sporadically maintained, please consider one of the various
 
 # Download
 
-Latest release (self-contained win-x64, no .NET install required): https://github.com/kevinbudiman/hunt-and-peck/releases/latest/download/hap.exe
+Latest release: https://github.com/kevinbudiman/hunt-and-peck/releases/latest/download/HuntAndPeck.zip
 
-All releases are on the [Releases page](https://github.com/kevinbudiman/hunt-and-peck/releases). Every CI run also publishes a `hap.exe` build as the `HuntAndPeck-win-x64` artifact on the [Actions page](https://github.com/kevinbudiman/hunt-and-peck/actions/workflows/build.yml) (kept for 90 days, sign-in required).
+Unzip anywhere and run `hap.exe`. Requires .NET Framework 4.8, which is included with Windows 10 (1903+) and Windows 11.
+
+All releases are on the [Releases page](https://github.com/kevinbudiman/hunt-and-peck/releases). Every CI run also publishes the zip as the `HuntAndPeck` artifact on the [Actions page](https://github.com/kevinbudiman/hunt-and-peck/actions/workflows/build.yml) (kept for 90 days, sign-in required).
 
 To cut a release, either:
 - on GitHub: **Actions** → **Build** → **Run workflow**, keep the branch as `master`, enter a version (e.g. `1.8`) and click **Run workflow**; or
@@ -21,15 +23,14 @@ The last upstream .NET Framework release (1.7) is still available at https://git
 
 # Building
 
-Requires the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0). From `src/`:
+Requires the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) (the app itself targets .NET Framework 4.8). From `src/`:
 
 ```
 dotnet build HuntAndPeck.slnx -c Release
 dotnet test --solution HuntAndPeck.slnx -c Release
-dotnet publish HuntAndPeck/HuntAndPeck.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -o dist
 ```
 
-Running the app and tests requires Windows; building works on any OS.
+The app is written to `HuntAndPeck/bin/Release/net48/`. Running the app and tests requires Windows; building works on any OS.
 
 # How to change font size
 
