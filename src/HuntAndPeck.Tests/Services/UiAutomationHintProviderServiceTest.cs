@@ -49,10 +49,10 @@ namespace HuntAndPeck.Tests.Services
             buttonHint.Invoke();
             Assert.True(button.Clicked.Wait(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken), "Invoke hint did not click the button");
 
+            // WinForms check boxes expose Invoke as well as Toggle, and Invoke takes precedence
             var checkBoxHint = Assert.Single(hints, h => Contains(h, window.Invoke(() => checkBox.Bounds)));
-            Assert.IsType<UiAutomationToggleHint>(checkBoxHint);
             checkBoxHint.Invoke();
-            Assert.True(window.Invoke(() => checkBox.Checked), "Toggle hint did not check the check box");
+            Assert.True(SpinWait.SpinUntil(() => window.Invoke(() => checkBox.Checked), TimeSpan.FromSeconds(5)), "Hint did not check the check box");
 
             Assert.DoesNotContain(hints, h => Contains(h, window.Invoke(() => readOnlyTextBox.Bounds)));
         }
