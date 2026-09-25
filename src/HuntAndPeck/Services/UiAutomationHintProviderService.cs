@@ -15,6 +15,60 @@ namespace HuntAndPeck.Services
     {
         private readonly IUIAutomation _automation = new CUIAutomation();
 
+        /// <summary>
+        /// Matches enabled, on screen elements in the control view
+        /// </summary>
+        private readonly IUIAutomationCondition _enabledOnScreenCondition;
+
+        /// <summary>
+        /// As <see cref="_enabledOnScreenCondition"/>, but also requires at least one pattern a hint can be created from.
+        /// Filtering on the provider side avoids marshalling elements that would be discarded anyway.
+        /// </summary>
+        private readonly IUIAutomationCondition _hintableCondition;
+
+        /// <summary>
+        /// Fetches everything <see cref="CreateHint"/> needs in the same cross-process call as the search,
+        /// rather than several round trips per element
+        /// </summary>
+        private readonly IUIAutomationCacheRequest _cacheRequest;
+
+        public UiAutomationHintProviderService()
+        {
+            var conditionControlView = _automation.ControlViewCondition;
+            var conditionEnabled = _automation.CreatePropertyCondition(UIA_PropertyIds.UIA_IsEnabledPropertyId, true);
+            var enabledControlCondition = _automation.CreateAndCondition(conditionControlView, conditionEnabled);
+
+            var conditionOnScreen = _automation.CreatePropertyCondition(UIA_PropertyIds.UIA_IsOffscreenPropertyId, false);
+            _enabledOnScreenCondition = _automation.CreateAndCondition(enabledControlCondition, conditionOnScreen);
+
+            var patternAvailableConditions = new[]
+            {
+                UIA_PropertyIds.UIA_IsInvokePatternAvailablePropertyId,
+                UIA_PropertyIds.UIA_IsTogglePatternAvailablePropertyId,
+                UIA_PropertyIds.UIA_IsSelectionItemPatternAvailablePropertyId,
+                UIA_PropertyIds.UIA_IsExpandCollapsePatternAvailablePropertyId,
+                UIA_PropertyIds.UIA_IsValuePatternAvailablePropertyId,
+                UIA_PropertyIds.UIA_IsRangeValuePatternAvailablePropertyId,
+            }.Select(id => _automation.CreatePropertyCondition(id, true)).ToArray();
+            var anyPatternAvailable = _automation.CreateOrConditionFromArray(patternAvailableConditions);
+            _hintableCondition = _automation.CreateAndCondition(_enabledOnScreenCondition, anyPatternAvailable);
+
+            _cacheRequest = _automation.CreateCacheRequest();
+            _cacheRequest.AddProperty(UIA_PropertyIds.UIA_BoundingRectanglePropertyId);
+            _cacheRequest.AddProperty(UIA_PropertyIds.UIA_IsInvokePatternAvailablePropertyId);
+            _cacheRequest.AddProperty(UIA_PropertyIds.UIA_IsTogglePatternAvailablePropertyId);
+            _cacheRequest.AddProperty(UIA_PropertyIds.UIA_IsSelectionItemPatternAvailablePropertyId);
+            _cacheRequest.AddProperty(UIA_PropertyIds.UIA_IsExpandCollapsePatternAvailablePropertyId);
+            _cacheRequest.AddProperty(UIA_PropertyIds.UIA_IsValuePatternAvailablePropertyId);
+            _cacheRequest.AddProperty(UIA_PropertyIds.UIA_ValueIsReadOnlyPropertyId);
+            _cacheRequest.AddProperty(UIA_PropertyIds.UIA_IsRangeValuePatternAvailablePropertyId);
+            _cacheRequest.AddProperty(UIA_PropertyIds.UIA_RangeValueIsReadOnlyPropertyId);
+            _cacheRequest.AddPattern(UIA_PatternIds.UIA_InvokePatternId);
+            _cacheRequest.AddPattern(UIA_PatternIds.UIA_TogglePatternId);
+            _cacheRequest.AddPattern(UIA_PatternIds.UIA_SelectionItemPatternId);
+            _cacheRequest.AddPattern(UIA_PatternIds.UIA_ExpandCollapsePatternId);
+        }
+
         public HintSession EnumHints()
         {
             var foregroundWindow = User32.GetForegroundWindow();
@@ -29,7 +83,7 @@ namespace HuntAndPeck.Services
         {
             Stopwatch sw = new Stopwatch();
             sw.Start();
-            var session = EnumWindowHints(hWnd, CreateHint);
+            var session = EnumWindowHints(hWnd, _hintableCondition, CreateHint);
             sw.Stop();
 
             Debug.WriteLine("Enumeration of hints took {0} ms", sw.ElapsedMilliseconds);
@@ -48,19 +102,20 @@ namespace HuntAndPeck.Services
 
         public HintSession EnumDebugHints(IntPtr hWnd)
         {
-            return EnumWindowHints(hWnd, CreateDebugHint);
+            return EnumWindowHints(hWnd, _enabledOnScreenCondition, CreateDebugHint);
         }
 
         /// <summary>
         /// Enumerates all the hints from the given window
         /// </summary>
         /// <param name="hWnd">The window to get hints from</param>
+        /// <param name="condition">The condition elements must match</param>
         /// <param name="hintFactory">The factory to use to create each hint in the session</param>
         /// <returns>A hint session</returns>
-        private HintSession EnumWindowHints(IntPtr hWnd, Func<IntPtr, Rect, IUIAutomationElement, Hint> hintFactory)
+        private HintSession EnumWindowHints(IntPtr hWnd, IUIAutomationCondition condition, Func<IntPtr, Rect, IUIAutomationElement, Hint> hintFactory)
         {
             var result = new List<Hint>();
-            var elements = EnumElements(hWnd);
+            var elements = EnumElements(hWnd, condition);
 
             // Window bounds
             var rawWindowBounds = new RECT();
@@ -69,7 +124,7 @@ namespace HuntAndPeck.Services
 
             foreach (var element in elements)
             {
-                var boundingRectObject = element.CurrentBoundingRectangle;
+                var boundingRectObject = element.CachedBoundingRectangle;
                 if ((boundingRectObject.right > boundingRectObject.left) && (boundingRectObject.bottom > boundingRectObject.top))
                 {
                     var niceRect = new Rect(new Point(boundingRectObject.left, boundingRectObject.top), new Point(boundingRectObject.right, boundingRectObject.bottom));
@@ -99,23 +154,19 @@ namespace HuntAndPeck.Services
         /// Enumerates the automation elements from the given window
         /// </summary>
         /// <param name="hWnd">The window handle</param>
-        /// <returns>All of the automation elements found</returns>
-        private List<IUIAutomationElement> EnumElements(IntPtr hWnd)
+        /// <param name="condition">The condition elements must match</param>
+        /// <returns>All of the automation elements found, populated with <see cref="_cacheRequest"/></returns>
+        private List<IUIAutomationElement> EnumElements(IntPtr hWnd, IUIAutomationCondition condition)
         {
             var result = new List<IUIAutomationElement>();
             var automationElement = _automation.ElementFromHandle(hWnd);
 
-            var conditionControlView = _automation.ControlViewCondition;
-            var conditionEnabled = _automation.CreatePropertyCondition(UIA_PropertyIds.UIA_IsEnabledPropertyId, true);
-            var enabledControlCondition = _automation.CreateAndCondition(conditionControlView, conditionEnabled);
-
-            var conditionOnScreen = _automation.CreatePropertyCondition(UIA_PropertyIds.UIA_IsOffscreenPropertyId, false);
-            var condition = _automation.CreateAndCondition(enabledControlCondition, conditionOnScreen);
-
-            var elementArray = automationElement.FindAll(TreeScope.TreeScope_Descendants, condition);
+            var elementArray = automationElement.FindAllBuildCache(TreeScope.TreeScope_Descendants, condition, _cacheRequest);
             if (elementArray != null)
             {
-                for (var i = 0; i < elementArray.Length; ++i)
+                var length = elementArray.Length;
+                result.Capacity = length;
+                for (var i = 0; i < length; ++i)
                 {
                     result.Add(elementArray.GetElement(i));
                 }
@@ -135,42 +186,42 @@ namespace HuntAndPeck.Services
         {
             try
             {
-                var invokePattern = (IUIAutomationInvokePattern)automationElement.GetCurrentPattern(UIA_PatternIds.UIA_InvokePatternId);
-                if (invokePattern != null)
+                if (IsCachedTrue(automationElement, UIA_PropertyIds.UIA_IsInvokePatternAvailablePropertyId))
                 {
+                    var invokePattern = (IUIAutomationInvokePattern)automationElement.GetCachedPattern(UIA_PatternIds.UIA_InvokePatternId);
                     return new UiAutomationInvokeHint(owningWindow, invokePattern, hintBounds);
                 }
 
-                var togglePattern = (IUIAutomationTogglePattern)automationElement.GetCurrentPattern(UIA_PatternIds.UIA_TogglePatternId);
-                if (togglePattern != null)
+                if (IsCachedTrue(automationElement, UIA_PropertyIds.UIA_IsTogglePatternAvailablePropertyId))
                 {
+                    var togglePattern = (IUIAutomationTogglePattern)automationElement.GetCachedPattern(UIA_PatternIds.UIA_TogglePatternId);
                     return new UiAutomationToggleHint(owningWindow, togglePattern, hintBounds);
                 }
-                
-                var selectPattern = (IUIAutomationSelectionItemPattern) automationElement.GetCurrentPattern(UIA_PatternIds.UIA_SelectionItemPatternId);
-                if (selectPattern != null)
+
+                if (IsCachedTrue(automationElement, UIA_PropertyIds.UIA_IsSelectionItemPatternAvailablePropertyId))
                 {
+                    var selectPattern = (IUIAutomationSelectionItemPattern)automationElement.GetCachedPattern(UIA_PatternIds.UIA_SelectionItemPatternId);
                     return new UiAutomationSelectHint(owningWindow, selectPattern, hintBounds);
                 }
 
-                var expandCollapsePattern = (IUIAutomationExpandCollapsePattern) automationElement.GetCurrentPattern(UIA_PatternIds.UIA_ExpandCollapsePatternId);
-                if (expandCollapsePattern != null)
+                if (IsCachedTrue(automationElement, UIA_PropertyIds.UIA_IsExpandCollapsePatternAvailablePropertyId))
                 {
+                    var expandCollapsePattern = (IUIAutomationExpandCollapsePattern)automationElement.GetCachedPattern(UIA_PatternIds.UIA_ExpandCollapsePatternId);
                     return new UiAutomationExpandCollapseHint(owningWindow, expandCollapsePattern, hintBounds);
                 }
 
-                var valuePattern = (IUIAutomationValuePattern)automationElement.GetCurrentPattern(UIA_PatternIds.UIA_ValuePatternId);
-                if (valuePattern != null && valuePattern.CurrentIsReadOnly == 0)
+                if (IsCachedTrue(automationElement, UIA_PropertyIds.UIA_IsValuePatternAvailablePropertyId) &&
+                    !IsCachedTrue(automationElement, UIA_PropertyIds.UIA_ValueIsReadOnlyPropertyId))
                 {
                     return new UiAutomationFocusHint(owningWindow, automationElement, hintBounds);
                 }
 
-                var rangeValuePattern = (IUIAutomationRangeValuePattern) automationElement.GetCurrentPattern(UIA_PatternIds.UIA_RangeValuePatternId);
-                if (rangeValuePattern != null && rangeValuePattern.CurrentIsReadOnly == 0)
+                if (IsCachedTrue(automationElement, UIA_PropertyIds.UIA_IsRangeValuePatternAvailablePropertyId) &&
+                    !IsCachedTrue(automationElement, UIA_PropertyIds.UIA_RangeValueIsReadOnlyPropertyId))
                 {
                     return new UiAutomationFocusHint(owningWindow, automationElement, hintBounds);
                 }
-                
+
                 return null;
             }
             catch (Exception)
@@ -178,6 +229,11 @@ namespace HuntAndPeck.Services
                 // May have gone
                 return null;
             }
+        }
+
+        private static bool IsCachedTrue(IUIAutomationElement automationElement, int propertyId)
+        {
+            return automationElement.GetCachedPropertyValue(propertyId) is true;
         }
 
         /// <summary>

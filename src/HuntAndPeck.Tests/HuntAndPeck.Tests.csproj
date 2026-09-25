@@ -3,6 +3,8 @@
     <OutputType>Exe</OutputType>
     <RootNamespace>HuntAndPeck.Tests</RootNamespace>
     <IsPackable>false</IsPackable>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
   </PropertyGroup>
 
   <ItemGroup>
