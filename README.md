@@ -13,7 +13,9 @@ Latest release (self-contained win-x64, no .NET install required): https://githu
 
 All releases are on the [Releases page](https://github.com/kevinbudiman/hunt-and-peck/releases). Every CI run also publishes a `hap.exe` build as the `HuntAndPeck-win-x64` artifact on the [Actions page](https://github.com/kevinbudiman/hunt-and-peck/actions/workflows/build.yml) (kept for 90 days, sign-in required).
 
-To cut a release, push a `release/<version>` tag, e.g. `git tag release/1.8 && git push origin release/1.8`.
+To cut a release, either:
+- on GitHub: **Actions** → **Build** → **Run workflow**, keep the branch as `master`, enter a version (e.g. `1.8`) and click **Run workflow**; or
+- push a `release/<version>` tag, e.g. `git tag release/1.8 && git push origin release/1.8`.
 
 The last upstream .NET Framework release (1.7) is still available at https://github.com/zsims/hunt-and-peck/releases/download/release%2F1.7/HuntAndPeck-1.7.zip
 

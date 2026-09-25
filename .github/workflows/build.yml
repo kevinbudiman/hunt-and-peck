@@ -6,12 +6,20 @@ on:
     tags: ['release/*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      release_version:
+        description: 'Version to release, e.g. 1.8 (master only). Leave empty for a normal build.'
+        required: false
+        default: ''
 
 jobs:
   build:
     runs-on: windows-latest
     permissions:
-      contents: write  # create releases on release/* tags
+      contents: write  # create releases
+    env:
+      # Empty unless the workflow is run manually with a version
+      RELEASE_VERSION: ${{ inputs.release_version }}
     defaults:
       run:
         working-directory: src
@@ -30,8 +38,10 @@ jobs:
 
       - name: Publish
         run: |
-          # release/1.8 -> 1.8; untagged builds keep the default version
-          $version = if ($env:GITHUB_REF -like 'refs/tags/release/*') { $env:GITHUB_REF_NAME -replace '^release/', '' } else { '1.0.0' }
+          # Manual release input, else release/1.8 tag -> 1.8, else the default version
+          $version = if ($env:RELEASE_VERSION) { $env:RELEASE_VERSION }
+                     elseif ($env:GITHUB_REF -like 'refs/tags/release/*') { $env:GITHUB_REF_NAME -replace '^release/', '' }
+                     else { '1.0.0' }
           dotnet publish HuntAndPeck/HuntAndPeck.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:Version=$version -o ../dist
 
       - uses: actions/upload-artifact@v7
@@ -40,10 +50,17 @@ jobs:
           path: dist/hap.exe
 
       - name: Create release
-        if: startsWith(github.ref, 'refs/tags/release/')
+        if: startsWith(github.ref, 'refs/tags/release/') || (inputs.release_version != '' && github.ref == 'refs/heads/master')
         working-directory: .
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $version = $env:GITHUB_REF_NAME -replace '^release/', ''
-          gh release create $env:GITHUB_REF_NAME dist/hap.exe --title "HuntAndPeck $version" --generate-notes
+          if ($env:RELEASE_VERSION) {
+            $version = $env:RELEASE_VERSION
+            $tag = "release/$version"
+          } else {
+            $tag = $env:GITHUB_REF_NAME
+            $version = $tag -replace '^release/', ''
+          }
+          # --target creates the tag on this commit when it doesn't exist yet
+          gh release create $tag dist/hap.exe --target $env:GITHUB_SHA --title "HuntAndPeck $version" --generate-notes
